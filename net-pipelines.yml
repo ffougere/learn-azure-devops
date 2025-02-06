@@ -1,0 +1,41 @@
+# Starter pipeline
+trigger:
+  - main  # Runs the pipeline when changes are pushed to the 'main' branch
+
+pool:
+  name: SelfHostedPool  # Specify the name of your agent pool
+
+jobs:
+- job: Build
+  displayName: 'Build .Net'
+  - checkout: self
+    path: pipelines-dotnet-core
+
+  - task: UseDotNet@2
+    inputs:
+      packageType: 'sdk'
+      version: '6.x'  # Specify .NET Core SDK version (6.x, 7.x, etc.)
+      installationPath: $(Agent.ToolsDirectory)/dotnet
+
+  - script: dotnet restore
+    displayName: 'Restore dependencies'
+
+  - script: dotnet build --configuration Release
+    displayName: 'Build application'
+
+  - script: dotnet test --configuration Release --logger trx
+    displayName: 'Run unit tests'
+
+  - task: PublishTestResults@2
+    inputs:
+      testResultsFormat: 'VSTest'
+      testResultsFiles: '**/*.trx'
+
+  - script: dotnet publish -c Release -o $(Build.ArtifactStagingDirectory)
+    displayName: 'Publish application'
+
+  - task: PublishBuildArtifacts@1
+    inputs:
+      pathToPublish: '$(Build.ArtifactStagingDirectory)'
+      artifactName: 'drop'
+    displayName: 'Upload build artifacts'
